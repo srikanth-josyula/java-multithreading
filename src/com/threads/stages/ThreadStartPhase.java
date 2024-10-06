@@ -27,8 +27,13 @@ public class ThreadStartPhase {
         
         // Calling start() to move to the runnable state
         thread.start();
+
         System.out.println("After calling start(), thread state: " + thread.getState()); // RUNNABLE or TERMINATED
         //This start will run the run method now we will see run output too as 'Thread is now running: MyCustomThread'
+        
+        
+        // Calling start() second time
+        thread.start();			//Exception in thread "main" java.lang.IllegalThreadStateException
 
         
         // Wait for the thread to finish execution
