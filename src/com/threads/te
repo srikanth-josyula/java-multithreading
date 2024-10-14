@@ -1,0 +1,30 @@
+package org.sample.nodes;
+
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+
+
+public class GetNodeProperties {
+
+	private final static int SkipCount = Integer.valueOf("2");
+	
+	public static void main(String[] args) {
+		int pageNum = 0;
+		int maxLimit = 5;
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+
+		Stream.iterate(0, i -> i < 2, i -> i + 1)
+			  .forEach(i -> {
+				executor.submit(() -> {
+					System.out.println(Thread.currentThread().getName() + " = Hello World !");
+					Stream.iterate(pageNum, j -> j < maxLimit, j -> j + SkipCount)
+			        .forEach(j -> System.out.println(j));
+				 });
+			  });
+		executor.shutdown();
+	}
+}
