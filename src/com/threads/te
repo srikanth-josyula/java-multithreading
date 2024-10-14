@@ -2,11 +2,12 @@ package org.sample.nodes;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 public class GetNodeProperties {
 
     private final static int SKIP_COUNT = Integer.parseInt("2");  // Use Integer.parseInt for converting string to int
-    
+
     public static void main(String[] args) {
         int pageNum = 0;       // Start page number
         int maxLimit = 5;      // Max limit to process
@@ -14,35 +15,18 @@ public class GetNodeProperties {
         // Create an ExecutorService with 2 threads (adjust the number of threads based on your requirements)
         ExecutorService executor = Executors.newFixedThreadPool(3);
 
-        // We will divide the task into different ranges for the threads
-        // Thread 1: Range 0-2, Thread 2: Range 2-4, and Thread 3: Remaining (if any)
-
-        // Submit the first thread to process range 0-2
-        executor.submit(() -> {
-            System.out.println(Thread.currentThread().getName() + " processing range 0-2");
-            for (int i = pageNum; i < Math.min(pageNum + SKIP_COUNT, maxLimit); i++) {
-                System.out.println(Thread.currentThread().getName() + " - " + i);
-            }
-        });
-
-        // Submit the second thread to process range 2-4
-        executor.submit(() -> {
-            System.out.println(Thread.currentThread().getName() + " processing range 2-4");
-            for (int i = pageNum + SKIP_COUNT; i < Math.min(pageNum + 2 * SKIP_COUNT, maxLimit); i++) {
-                System.out.println(Thread.currentThread().getName() + " - " + i);
-            }
-        });
-
-        // If there's any remaining work (5 in this case), submit it to a third thread
-        executor.submit(() -> {
-            int start = pageNum + 2 * SKIP_COUNT;
-            if (start < maxLimit) {
-                System.out.println(Thread.currentThread().getName() + " processing remaining items");
-                for (int i = start; i < maxLimit; i++) {
-                    System.out.println(Thread.currentThread().getName() + " - " + i);
-                }
-            }
-        });
+        // Use Stream.iterate to submit tasks for each range to the executor
+        IntStream.iterate(pageNum, i -> i < maxLimit, i -> i + SKIP_COUNT)
+                .forEach(i -> {
+                    // Submit a task to the executor for each "chunk" of the iteration
+                    executor.submit(() -> {
+                        System.out.println(Thread.currentThread().getName() + " processing range starting from " + i);
+                        // Process the range within this chunk (i.e., from i to min(i + SKIP_COUNT, maxLimit))
+                        for (int j = i; j < Math.min(i + SKIP_COUNT, maxLimit); j++) {
+                            System.out.println(Thread.currentThread().getName() + " - " + j);
+                        }
+                    });
+                });
 
         // Shutdown the executor after all tasks are submitted
         executor.shutdown();
