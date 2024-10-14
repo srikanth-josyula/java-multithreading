@@ -1,44 +1,39 @@
-package org.sample.nodes;
+package org.sample.scripts;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.stream.IntStream;
+import org.json.JSONObject;
+import org.sample.http.OKHttpClient;
 
-import org.sample.scripts.AlfrescoQueryOps;
+import com.jayway.jsonpath.JsonPath;
 
+public class AlfrescoQueryOps {
 
-public class GetNodeProperties {
+	public int getmaxNodeCountOkHTTP(String queryString) {
+		int totalDocCount = 0;
+		try {
 
-    private final static int SKIP_COUNT = Integer.parseInt("20");  // Use Integer.parseInt for converting string to int
-    
-    private final static String SEARCH_QUERY = "SITE:'test' AND cm:creator:'josyusr' AND TYPE:'jh:JHDocument'";
+			JSONObject query = new JSONObject();
+			query.put("language", "afts");
+			query.put("query", queryString);
 
-    public static void main(String[] args) {
-        int pageNum = 0;       // Start page number
-        AlfrescoQueryOps alfOps = new AlfrescoQueryOps();
-        int maxLimit = alfOps.getmaxNodeCountOkHTTP(SEARCH_QUERY);
-        
-        //int maxLimit = 71;
-        
-        System.out.println("Total documents found for Admin: " + maxLimit);
-        
-        ExecutorService executor = Executors.newFixedThreadPool(3);
+			JSONObject paging = new JSONObject();
+			paging.put("maxItems", 1);
 
-        // Use Stream.iterate to submit tasks for each range to the executor
-        IntStream.iterate(pageNum, i -> i < maxLimit, i -> i + SKIP_COUNT)
-                .forEach(i -> {
-                    // Submit a task to the executor for each "chunk" of the iteration
-                    executor.submit(() -> {
-                        System.out.println(Thread.currentThread().getName() + " processing range starting from " + i);
-                        // Process the range within this chunk (i.e., from i to min(i + SKIP_COUNT, maxLimit))
-                        System.out.println(i);
-                        /*for (int j = i; j < Math.min(i + SKIP_COUNT, maxLimit); j++) {
-                            System.out.println(Thread.currentThread().getName() + " - " + j);
-                        }*/
-                    });
-                });
+			JSONObject root = new JSONObject();
+			root.put("query", query);
+			root.put("paging", paging);
 
-        // Shutdown the executor after all tasks are submitted
-        executor.shutdown();
-    }
+			String jsonString = root.toString();
+			
+			//System.out.println(jsonString);
+			//System.out.println(CommonConstants.alf_host + CommonConstants.SEARCH_URL);
+
+			String response = OKHttpClient.sendPOSTSync("http://locahost:8080" + "/alfresco/api/-default-/public/search/versions/1/search",
+					jsonString);
+			totalDocCount = JsonPath.read(response, "$.list.pagination.totalItems");
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return totalDocCount;
+	}
 }
