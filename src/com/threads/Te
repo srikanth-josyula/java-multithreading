@@ -1,30 +1,41 @@
-import com.opencsv.CSVWriter;
+import net.sourceforge.jcsv.writer.CSVWriter;
+import net.sourceforge.jcsv.writer.internal.CSVWriterBuilder;
+
+import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class MultiThreadCSVWriter {
+public class OptimizedMultiThreadCSVWriter {
 
     private static final String CSV_FILE = "output.csv";
-    private static final int NUM_THREADS = 4; // Number of threads
-    private static final int NUM_RECORDS_PER_THREAD = 1000; // Records per thread
+    private static final int NUM_THREADS = Runtime.getRuntime().availableProcessors(); // Number of threads = CPU cores
+    private static final int NUM_RECORDS_PER_THREAD = 10000; // Records per thread
+    private static final int BATCH_SIZE = 500; // Adjust batch size for faster writes
 
     public static void main(String[] args) throws InterruptedException {
         ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
 
-        try (CSVWriter writer = new CSVWriter(new FileWriter(CSV_FILE))) {
+        // Use BufferedWriter to improve I/O performance
+        try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(CSV_FILE));
+             CSVWriter writer = new CSVWriterBuilder(bufferedWriter).build()) {
+
             // Add header to CSV
             String[] header = {"ID", "Name", "Age"};
-            writer.writeNext(header);
-            
+            synchronizedWrite(writer, List.of(header));  // Write header once
+
             // Submit writing tasks to the thread pool
             for (int i = 0; i < NUM_THREADS; i++) {
                 final int threadId = i;
                 executorService.submit(() -> {
                     try {
-                        writeRecords(writer, threadId);
+                        List<String[]> dataBatch = generateRecords(threadId);
+                        // Write the data batch in synchronized blocks for thread safety
+                        synchronizedWrite(writer, dataBatch);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -39,11 +50,24 @@ public class MultiThreadCSVWriter {
         }
     }
 
-    private static synchronized void writeRecords(CSVWriter writer, int threadId) throws IOException {
-        // Generate and write records in this thread
+    // Generate records for each thread
+    private static List<String[]> generateRecords(int threadId) {
+        List<String[]> records = new ArrayList<>();
         for (int i = 0; i < NUM_RECORDS_PER_THREAD; i++) {
             String[] record = {String.valueOf(threadId * NUM_RECORDS_PER_THREAD + i), "Name" + i, String.valueOf(20 + i)};
-            writer.writeNext(record);
+            records.add(record);
+
+            // Flush in batches to reduce lock contention
+            if (records.size() >= BATCH_SIZE) {
+                // Yield control back for next batch
+                return new ArrayList<>(records);
+            }
         }
+        return records;
+    }
+
+    // Synchronized write to CSV
+    private static synchronized void synchronizedWrite(CSVWriter writer, List<String[]> dataBatch) throws IOException {
+        writer.writeAll(dataBatch);  // Write all records at once to minimize lock time
     }
 }
