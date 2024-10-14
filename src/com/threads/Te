@@ -1,0 +1,49 @@
+import com.opencsv.CSVWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+public class MultiThreadCSVWriter {
+
+    private static final String CSV_FILE = "output.csv";
+    private static final int NUM_THREADS = 4; // Number of threads
+    private static final int NUM_RECORDS_PER_THREAD = 1000; // Records per thread
+
+    public static void main(String[] args) throws InterruptedException {
+        ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
+
+        try (CSVWriter writer = new CSVWriter(new FileWriter(CSV_FILE))) {
+            // Add header to CSV
+            String[] header = {"ID", "Name", "Age"};
+            writer.writeNext(header);
+            
+            // Submit writing tasks to the thread pool
+            for (int i = 0; i < NUM_THREADS; i++) {
+                final int threadId = i;
+                executorService.submit(() -> {
+                    try {
+                        writeRecords(writer, threadId);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
+
+            // Shutdown and await termination
+            executorService.shutdown();
+            executorService.awaitTermination(1, TimeUnit.MINUTES);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static synchronized void writeRecords(CSVWriter writer, int threadId) throws IOException {
+        // Generate and write records in this thread
+        for (int i = 0; i < NUM_RECORDS_PER_THREAD; i++) {
+            String[] record = {String.valueOf(threadId * NUM_RECORDS_PER_THREAD + i), "Name" + i, String.valueOf(20 + i)};
+            writer.writeNext(record);
+        }
+    }
+}
