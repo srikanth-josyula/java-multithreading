@@ -1,44 +1,44 @@
-package org.sample.http;
+package org.sample.nodes;
 
-import java.io.IOException;
-import okhttp3.Call;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
-public class OKHttpClient {
+import org.sample.scripts.AlfrescoQueryOps;
 
-    @SuppressWarnings("deprecation")
-    public static String sendPOSTSync(String urlString, String jsonString) throws IOException {
-        String result = null;
-        OkHttpClient client = new OkHttpClient();
 
-        MediaType mediaType = MediaType.parse("application/octet-stream");
-        RequestBody body = RequestBody.create(mediaType, jsonString);
+public class GetNodeProperties {
 
-        Request request = new Request.Builder()
-            .url(urlString)
-            .post(body)
-            .addHeader("Content-Type", "application/json")
-            .addHeader("Authorization", "Basic a")
-            .build();
+    private final static int SKIP_COUNT = Integer.parseInt("20");  // Use Integer.parseInt for converting string to int
+    
+    private final static String SEARCH_QUERY = "SITE:'test' AND cm:creator:'josyusr' AND TYPE:'jh:JHDocument'";
+
+    public static void main(String[] args) {
+        int pageNum = 0;       // Start page number
+        AlfrescoQueryOps alfOps = new AlfrescoQueryOps();
+        int maxLimit = alfOps.getmaxNodeCountOkHTTP(SEARCH_QUERY);
         
-        Call call = client.newCall(request);
+        //int maxLimit = 71;
         
-        try (Response response = call.execute()) {
-            // Check if the response is successful
-            if (!response.isSuccessful()) {
-                throw new IOException("Unexpected code " + response);
-            }
-            result = response.body().string();  // Store response body
-        } catch (IOException e) {
-            System.out.println("An IO Exception occurred while executing the HTTP request: " + e.getMessage());
-        } catch (Exception e) {
-            System.out.println("An unexpected Exception occurred while executing the HTTP request: " + e.getMessage());
-        }
+        System.out.println("Total documents found for Admin: " + maxLimit);
+        
+        ExecutorService executor = Executors.newFixedThreadPool(3);
 
-        return result;
+        // Use Stream.iterate to submit tasks for each range to the executor
+        IntStream.iterate(pageNum, i -> i < maxLimit, i -> i + SKIP_COUNT)
+                .forEach(i -> {
+                    // Submit a task to the executor for each "chunk" of the iteration
+                    executor.submit(() -> {
+                        System.out.println(Thread.currentThread().getName() + " processing range starting from " + i);
+                        // Process the range within this chunk (i.e., from i to min(i + SKIP_COUNT, maxLimit))
+                        System.out.println(i);
+                        /*for (int j = i; j < Math.min(i + SKIP_COUNT, maxLimit); j++) {
+                            System.out.println(Thread.currentThread().getName() + " - " + j);
+                        }*/
+                    });
+                });
+
+        // Shutdown the executor after all tasks are submitted
+        executor.shutdown();
     }
 }
