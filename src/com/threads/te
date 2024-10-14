@@ -1,52 +1,65 @@
 package org.sample.nodes;
 
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
+import org.json.JSONArray;
 import org.sample.scripts.AlfrescoQueryOps;
+
 
 public class GetNodeProperties {
 
     private final static int SKIP_COUNT = Integer.parseInt("20");  // Use Integer.parseInt for converting string to int
+    
     private final static String SEARCH_QUERY = "SITE:'test' AND cm:creator:'josyusr' AND TYPE:'jh:JHDocument'";
 
     public static void main(String[] args) {
-        int pageNum = 0;       // Start page number
-        AlfrescoQueryOps alfOps = new AlfrescoQueryOps();
+    	int pageNum = 0;       // Start page number
+        
+    	AlfrescoQueryOps alfOps = new AlfrescoQueryOps();
         int maxLimit = alfOps.getmaxNodeCountOkHTTP(SEARCH_QUERY);  // Get max node count from Alfresco
         
-        // Test value for hardcoded max limit
-        // int maxLimit = 71;
         
         System.out.println("Total documents found for Admin: " + maxLimit);
-
-        ExecutorService executor = Executors.newFixedThreadPool(3);  // Fixed thread pool
-
-        // Use Stream.iterate to submit tasks for each range to the executor
+        
+        ExecutorService executor = Executors.newFixedThreadPool(3);
+/*
         IntStream.iterate(pageNum, i -> i < maxLimit, i -> i + SKIP_COUNT)
                 .forEach(i -> {
-                    // Submit a task to the executor for each "chunk" of the iteration
                     executor.submit(() -> {
                         System.out.println(Thread.currentThread().getName() + " processing range starting from " + i);
-                        // Process the range within this chunk (i.e., from i to min(i + SKIP_COUNT, maxLimit))
-                        System.out.println("Processing range: " + i + " to " + Math.min(i + SKIP_COUNT, maxLimit));
-                        // Here you would typically process the nodes, such as making another HTTP request for the node details
+                        System.out.println(i);
+                        
+                        }
                     });
-                });
+                });*/
+        
+       /* Set<String> nodeIDList = Stream.iterate(pageNum, i -> i < maxLimit, i -> i + SKIP_COUNT)
+        	  .flatMap(i -> processNodeDetails(alfOps, i, SEARCH_QUERY).stream())
+              .collect(Collectors.toSet());*/
+        
+        Set<String> nodeIDList = Stream.iterate(pageNum, i -> i < maxLimit, i -> i + SKIP_COUNT)
+        		.flatMap(i ->{
+        			
+        		})
 
-        // Shutdown the executor after all tasks are submitted
-        executor.shutdown();
-        try {
-            // Wait for all tasks to finish before terminating the program
-            if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
-                // If tasks don't finish in 60 seconds, force shutdown
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            System.out.println("Executor interrupted while waiting for tasks to finish: " + e.getMessage());
-            executor.shutdownNow(); // Force shutdown
-        }
+        //executor.shutdownNow();
+        
+        System.out.println(nodeIDList.size());
+       
+    }
+    
+    
+    private static Set<String> processNodeDetails(AlfrescoQueryOps alfOps, int pageNum, String searchQuery) {
+        JSONArray dataJsonArr = alfOps.getNodeDetailsOkHTTP(pageNum, searchQuery).getJSONObject("list")
+                .getJSONArray("entries");
+        
+        return IntStream.range(0, dataJsonArr.length())
+                .mapToObj(i -> dataJsonArr.getJSONObject(i).getJSONObject("entry").getString("id"))
+                .collect(Collectors.toSet());
     }
 }
