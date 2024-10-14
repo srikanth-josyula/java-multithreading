@@ -1,34 +1,42 @@
-package org.sample.nodes;
+package org.sample.http;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.stream.IntStream;
+import java.io.IOException;
 
-public class GetNodeProperties {
+import okhttp3.Call;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
-    private final static int SKIP_COUNT = Integer.parseInt("2");  // Use Integer.parseInt for converting string to int
+public class OKHttpClient {
 
-    public static void main(String[] args) {
-        int pageNum = 0;       // Start page number
-        int maxLimit = 5;      // Max limit to process
+	@SuppressWarnings("deprecation")
+	public static String sendPOSTSync(String urlString, String jsonString) throws IOException {
+		String result = null;
+		OkHttpClient client = new OkHttpClient();
 
-        // Create an ExecutorService with 2 threads (adjust the number of threads based on your requirements)
-        ExecutorService executor = Executors.newFixedThreadPool(3);
+		MediaType mediaType = MediaType.parse("application/octet-stream");
+		RequestBody body = RequestBody.create(mediaType, jsonString);
 
-        // Use Stream.iterate to submit tasks for each range to the executor
-        IntStream.iterate(pageNum, i -> i < maxLimit, i -> i + SKIP_COUNT)
-                .forEach(i -> {
-                    // Submit a task to the executor for each "chunk" of the iteration
-                    executor.submit(() -> {
-                        System.out.println(Thread.currentThread().getName() + " processing range starting from " + i);
-                        // Process the range within this chunk (i.e., from i to min(i + SKIP_COUNT, maxLimit))
-                        for (int j = i; j < Math.min(i + SKIP_COUNT, maxLimit); j++) {
-                            System.out.println(Thread.currentThread().getName() + " - " + j);
-                        }
-                    });
-                });
+		Request request = new Request.Builder().url(urlString).post(body).addHeader("Content-Type", "application/json")
+				.addHeader("Authorization", "Basic a").build();
+		Call call = client.newCall(request);
+		try {
+			Response response = call.execute();
+			if (!response.isSuccessful())
+				throw new IOException("Unexpected code " + response);
+			result = response.body().string();
+		} catch (IOException e) {
+			System.out.println("An IO Exception occurred while executing the HTTP request: " + e.getMessage());
+		} catch (Exception e) {
+			System.out.println("An unexpected Exception occurred while executing the HTTP request: " + e.getMessage());
+		} finally {
+			if (call != null) {
+				call.cancel();
+			}
+		}
+		return result;
 
-        // Shutdown the executor after all tasks are submitted
-        executor.shutdown();
-    }
+	}
 }
