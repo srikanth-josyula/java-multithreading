@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -31,13 +32,16 @@ public class GetNodeProperties {
 
         IntStream.iterate(pageNum, i -> i < maxLimit, i -> i + SKIP_COUNT)
                 .forEach(i -> {
-                    executor.submit(() -> {
+                   executor.submit(() -> {
                         System.out.println(Thread.currentThread().getName() + " processing range starting from " + i);
-                        nodeIDList.addAll(processNodeDetails(alfOps, i, SEARCH_QUERY));
+                        System.out.println(processNodeDetails(alfOps, i, SEARCH_QUERY).size());
                     });
                 });
-        executor.shutdownNow();
+        
         System.out.println(nodeIDList.size());
+        
+        executor.shutdown();
+        
     }
     
     
