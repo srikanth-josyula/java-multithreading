@@ -1,73 +1,70 @@
-import net.sourceforge.jcsv.writer.CSVWriter;
-import net.sourceforge.jcsv.writer.internal.CSVWriterBuilder;
+package org.sample.csvwriter;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
-public class OptimizedMultiThreadCSVWriter {
+import org.sample.constants.CommonConstants;
 
-    private static final String CSV_FILE = "output.csv";
-    private static final int NUM_THREADS = Runtime.getRuntime().availableProcessors(); // Number of threads = CPU cores
-    private static final int NUM_RECORDS_PER_THREAD = 10000; // Records per thread
-    private static final int BATCH_SIZE = 500; // Adjust batch size for faster writes
+import com.csvreader.CsvWriter;
 
-    public static void main(String[] args) throws InterruptedException {
-        ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
+public class MultiThreadCSVWriter {
+	
+	public static void main(String[] args) {
+		createCSVReport();
+	}
 
-        // Use BufferedWriter to improve I/O performance
-        try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(CSV_FILE));
-             CSVWriter writer = new CSVWriterBuilder(bufferedWriter).build()) {
+	private static final char SEPERATOR = ',';
 
-            // Add header to CSV
-            String[] header = {"ID", "Name", "Age"};
-            synchronizedWrite(writer, List.of(header));  // Write header once
+	public static void createCSVReport() {
+		
 
-            // Submit writing tasks to the thread pool
-            for (int i = 0; i < NUM_THREADS; i++) {
-                final int threadId = i;
-                executorService.submit(() -> {
-                    try {
-                        List<String[]> dataBatch = generateRecords(threadId);
-                        // Write the data batch in synchronized blocks for thread safety
-                        synchronizedWrite(writer, dataBatch);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
-            }
+		try {
+			File file = new File(CommonConstants.csv_location + "/" + "test.csv");
 
-            // Shutdown and await termination
-            executorService.shutdown();
-            executorService.awaitTermination(1, TimeUnit.MINUTES);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+			file.getParentFile().mkdirs();
+			final CsvWriter csvWriter = new CsvWriter(new FileWriter(file, true), SEPERATOR);
 
-    // Generate records for each thread
-    private static List<String[]> generateRecords(int threadId) {
-        List<String[]> records = new ArrayList<>();
-        for (int i = 0; i < NUM_RECORDS_PER_THREAD; i++) {
-            String[] record = {String.valueOf(threadId * NUM_RECORDS_PER_THREAD + i), "Name" + i, String.valueOf(20 + i)};
-            records.add(record);
+			String[] header = { "test" };
 
-            // Flush in batches to reduce lock contention
-            if (records.size() >= BATCH_SIZE) {
-                // Yield control back for next batch
-                return new ArrayList<>(records);
-            }
-        }
-        return records;
-    }
+			csvWriter.writeRecord(header);
 
-    // Synchronized write to CSV
-    private static synchronized void synchronizedWrite(CSVWriter writer, List<String[]> dataBatch) throws IOException {
-        writer.writeAll(dataBatch);  // Write all records at once to minimize lock time
-    }
+			ExecutorService executor = Executors.newFixedThreadPool(10);
+			IntStream.iterate(0, i -> i < 100, i -> i + 1).forEach(i -> {
+				executor.submit(() -> {
+					String[] data = {Integer.toString(i)};
+					try {
+						csvWriter.writeRecord(data);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				});
+			});
+
+			executor.shutdown();
+
+			if (!executor.awaitTermination(1, TimeUnit.HOURS)) {
+				System.out.println("Timeout exceeded before completing all tasks.");
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void generateCSV(CsvWriter csvWriter) {
+		try {
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 }
